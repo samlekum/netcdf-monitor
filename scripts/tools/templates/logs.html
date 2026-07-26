@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Logs — NetCDF Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/monitor.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/logs.css') }}">
+</head>
+
+<body>
+
+<div id="app">
+
+  <!-- Masthead -->
+  <header class="masthead">
+    <div class="masthead-inner">
+      <div class="wordmark">
+        <span class="wordmark-mark">.nc</span>
+        <div class="wordmark-text">
+          <span class="wordmark-title">Process logs</span>
+          <span class="wordmark-sub">Live output — semua instance 01_download_data.py</span>
+        </div>
+      </div>
+      <div class="masthead-right">
+        <div class="live-pill">
+          <span class="status-pulse" id="live-dot"></span>
+          <span class="status-text" id="live-text">Menghubungkan&hellip;</span>
+        </div>
+        <a class="btn btn-ghost" href="{{ url_for('index') }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+          <span class="btn-text">Dashboard</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="content logs-content">
+
+    <!-- Toolbar: process + level filters -->
+    <section class="logs-toolbar">
+      <div class="filter-group" id="pid-filters" aria-label="Filter proses">
+        <button class="pid-chip active" data-pid="all">Semua proses</button>
+      </div>
+
+      <div class="toolbar-right">
+        <div class="level-tabs" role="group" aria-label="Filter level">
+          <button class="level-tab active" data-level="all">Semua</button>
+          <button class="level-tab" data-level="ERROR">Error</button>
+          <button class="level-tab" data-level="WARNING">Warning</button>
+          <button class="level-tab" data-level="INFO">Info</button>
+        </div>
+        <button class="btn btn-ghost autoscroll-toggle active" id="autoscroll-toggle" title="Auto-scroll ke baris terbaru">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="19 12 12 19 5 12"></polyline><line x1="12" y1="5" x2="12" y2="19"></line></svg>
+          <span class="btn-text">Auto-scroll</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Terminal panel: the signature element -->
+    <section class="terminal-shell">
+      <div class="terminal-chrome">
+        <div class="terminal-dots"><span></span><span></span><span></span></div>
+        <span class="terminal-title" id="terminal-title">download_activity.log</span>
+        <span class="terminal-count" id="terminal-count">0 baris</span>
+      </div>
+
+      <div class="terminal-body" id="terminal-body">
+        <div class="terminal-empty" id="terminal-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+          <p>Belum ada proses download yang aktif.</p>
+          <span>Jalankan <code>01_download_data.py</code> untuk mulai melihat log di sini.</span>
+        </div>
+        <div class="terminal-lines" id="terminal-lines"></div>
+      </div>
+
+      <button class="jump-latest" id="jump-latest" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="19 12 12 19 5 12"></polyline><line x1="12" y1="5" x2="12" y2="19"></line></svg>
+        Baris baru — lompat ke terbaru
+      </button>
+    </section>
+
+  </main>
+</div>
+
+<script src="{{ url_for('static', filename='js/logs.js') }}"></script>
+
+</body>
+</html>

@@ -30,10 +30,27 @@ class Config:
     ).strip()
 
     # Paths
-    TEMP_FILE = os.path.join(PROJECT_ROOT, f"temp_download_{_PID}.nc")           # <-- diubah
+    # NOTE: TEMP_FILE & LOG_FILE sengaja disisipin PID supaya kalau
+    # 01_download_data.py dijalanin beberapa instance sekaligus (paralel,
+    # buat mempercepat proses download), tiap proses punya file sendiri-
+    # sendiri dan gak saling tabrakan/corrupt satu sama lain.
+    #
+    # Konsekuensinya: monitor.py (Flask dashboard) gak bisa lagi asumsi
+    # "satu log file tetap" -- makanya semua log ditaruh di LOG_DIR biar
+    # gampang di-glob dan digabung (lihat get_active_log_files() di
+    # monitor.py).
+    TEMP_FILE = os.path.join(PROJECT_ROOT, f"temp_download_{_PID}.nc")
     FINAL_BASE_DIR = os.path.join(PROJECT_ROOT, "data_bandung")
     METADATA_BASE_DIR = os.path.join(PROJECT_ROOT, "_metadata")
-    LOG_FILE = os.path.join(PROJECT_ROOT, f"download_activity_{_PID}.log")       # <-- diubah
+
+    LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
+    LOG_FILE = os.path.join(LOG_DIR, f"download_activity_{_PID}.log")
+    LOG_FILE_PATTERN = os.path.join(LOG_DIR, "download_activity_*.log")
+
+    # Setelah berapa lama (detik) sebuah log file dianggap "basi"/proses
+    # sudah selesai/mati, jadi gak usah ikut ditampilkan/digabung lagi di
+    # dashboard. Default 1 jam.
+    LOG_ACTIVE_MAX_AGE = 3600
 
     # Retry
     MAX_RETRY = 3

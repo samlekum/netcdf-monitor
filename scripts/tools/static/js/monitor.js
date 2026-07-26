@@ -145,28 +145,6 @@ async function checkForNewFile() {
 checkForNewFile();
 setInterval(checkForNewFile, POLL_INTERVAL_MS);
 
-const LOG_POLL_INTERVAL_MS = 4000;
-
-function parseLevel(line) {
-  if (line.includes(' - ERROR - ')) return 'ERROR';
-  if (line.includes(' - WARNING - ')) return 'WARNING';
-  return 'INFO';
-}
-
-async function pollLog() {
-  try {
-    const res = await fetch('/api/log');
-    if (!res.ok) return;
-    const data = await res.json();
-    renderLog(data.lines);
-    renderStatus(data.seconds_since_update);
-  } catch (err) {
-    console.error('Gagal ambil log:', err);
-  }
-}
-pollLog();
-setInterval(pollLog, LOG_POLL_INTERVAL_MS);
-
 function updateHeights() {
   document.querySelectorAll('.day-header.open').forEach(h => {
     const c = h.nextElementSibling;

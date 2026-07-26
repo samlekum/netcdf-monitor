@@ -1,6 +1,10 @@
+import glob
 import os
+import re
 import sys
+import time
 
+os.system("cls")
 from flask import Flask, render_template, jsonify, request
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -34,7 +38,7 @@ def format_size(value):
     return human_readable(value).replace(".", ",")
 
 def tail_log_lines(path, max_lines=LOG_TAIL_LINES, max_bytes=LOG_TAIL_MAX_BYTES):
-    """Baca N baris terakhir dari file log tanpa load seluruh file ke memory.
+    """Baca N baris terakhir dari SATU file log tanpa load seluruh file ke memory.
 
     Cukup baca `max_bytes` terakhir dari file (dari belakang), baru split
     per baris. Ini penting karena log dari 01_download_data.py bisa jadi
@@ -58,7 +62,107 @@ def tail_log_lines(path, max_lines=LOG_TAIL_LINES, max_bytes=LOG_TAIL_MAX_BYTES)
     return lines[-max_lines:]
 
 
-def list_files_for_day(base_dir, month_key, day_key, ext=DATASET_EXT):
+def get_active_log_files(pattern=None, max_age_seconds=None):
+    """Cari semua file log (download_activity_<PID>.log) yang masih 'aktif'.
+
+    01_download_data.py bisa dijalankan sebagai beberapa proses sekaligus
+    secara paralel (masing-masing dengan PID & log file sendiri, lihat
+    Config.LOG_FILE). Supaya dashboard nangkep semua proses yang lagi
+    jalan -- bukan cuma satu file tetap yang belum tentu match dengan PID
+    proses monitor.py sendiri -- kita glob semua file yang match pattern,
+    lalu buang yang sudah lama gak di-update (dianggap proses sudah mati/
+    selesai).
+    """
+    pattern = pattern or Config.LOG_FILE_PATTERN
+    max_age_seconds = max_age_seconds or Config.LOG_ACTIVE_MAX_AGE
+
+    now = time.time()
+    active = []
+    for path in glob.glob(pattern):
+        try:
+            mtime = os.path.getmtime(path)
+        except OSError:
+            continue
+        if now - mtime < max_age_seconds:
+            active.append(path)
+
+    return active
+
+
+def tail_merged_logs(max_lines=LOG_TAIL_LINES, max_bytes=LOG_TAIL_MAX_BYTES):
+    """Gabungkan baris log dari semua proses download yang lagi aktif.
+
+    Tiap baris log dimulai dengan asctime format ISO-like
+    ("YYYY-MM-DD HH:MM:SS,mmm"), jadi urutan lexicographic == urutan
+    waktu, aman di-sort pakai string langsung tanpa perlu parsing.
+    """
+    log_files = get_active_log_files()
+
+    if not log_files:
+        return [], None
+
+    all_lines = []
+    latest_mtime = 0
+    for path in log_files:
+        all_lines.extend(tail_log_lines(path, max_lines=max_lines, max_bytes=max_bytes))
+        try:
+            latest_mtime = max(latest_mtime, os.path.getmtime(path))
+        except OSError:
+            pass
+
+    all_lines.sort(key=lambda line: line[:23])
+    return all_lines[-max_lines:], latest_mtime
+
+
+LOG_LINE_PATTERN = re.compile(
+    r"^(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) - PID(?P<pid>\d+) - (?P<level>\w+) - (?P<msg>.*)$"
+)
+LOG_FILENAME_PID_PATTERN = re.compile(r"download_activity_(\d+)\.log$")
+
+
+def parse_log_line(line, fallback_pid=None):
+    """Ubah satu baris log mentah jadi dict terstruktur {ts, pid, level, message}.
+
+    Kalau baris gak match format yang diharapkan (misal log lama sebelum
+    format ditambahin PID, atau baris traceback lanjutan), tetap
+    dikembalikan sebagai dict dengan level UNKNOWN supaya gak hilang dari
+    tampilan -- cuma gak bisa di-filter per level/PID dengan akurat.
+    """
+    match = LOG_LINE_PATTERN.match(line)
+    if match:
+        return {
+            "ts": match.group("ts"),
+            "pid": match.group("pid"),
+            "level": match.group("level"),
+            "message": match.group("msg"),
+            "raw": line,
+        }
+    return {
+        "ts": None,
+        "pid": fallback_pid,
+        "level": "UNKNOWN",
+        "message": line,
+        "raw": line,
+    }
+
+
+def get_active_pids():
+    """PID dari NAMA FILE log yang masih aktif (bukan dari isi baris).
+
+    Ini penting buat kasus proses baru mulai tapi belum sempat nulis
+    baris log apapun -- filenya udah ada (dibuat begitu logging pertama
+    kali nulis) jadi tetap kedeteksi sebagai proses aktif walau daftar
+    baris log-nya kosong.
+    """
+    pids = []
+    for path in get_active_log_files():
+        m = LOG_FILENAME_PID_PATTERN.search(os.path.basename(path))
+        if m:
+            pids.append(m.group(1))
+    return sorted(set(pids))
+
+
+
     """Cari semua file .nc yang berada di folder base_dir/.../<month_key>/<day_key>/.
 
     Logic path-parsing ini sengaja disamain persis kayak scan() di
@@ -186,19 +290,24 @@ def api_files():
     })
 
 
+@app.route("/logs")
+def logs_page():
+    return render_template("logs.html")
+
+
 @app.route("/api/log")
 def api_log():
-    log_file = Config.LOG_FILE
-    lines = tail_log_lines(log_file)
+    raw_lines, latest_mtime = tail_merged_logs()
+    entries = [parse_log_line(line) for line in raw_lines]
 
     seconds_since_update = None
-    if os.path.exists(log_file):
-        import time
-        seconds_since_update = time.time() - os.path.getmtime(log_file)
+    if latest_mtime:
+        seconds_since_update = time.time() - latest_mtime
 
     return jsonify({
-        "lines": lines,
+        "entries": entries,
         "seconds_since_update": seconds_since_update,
+        "active_pids": get_active_pids(),
     })
 
 

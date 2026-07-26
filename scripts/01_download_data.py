@@ -18,10 +18,14 @@ from pipeline.telegram_notifier import TelegramNotifier
 
 
 def setup_logging(log_file):
+    os.makedirs(os.path.dirname(log_file), exist_ok=True)
     logging.basicConfig(
         filename=log_file,
         level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
+        # PID disisipin di format supaya kalau beberapa instance jalan
+        # paralel dan log-nya digabung sama monitor.py, tiap baris masih
+        # jelas asalnya dari proses yang mana.
+        format=f"%(asctime)s - PID{os.getpid()} - %(levelname)s - %(message)s",
     )
 
 
