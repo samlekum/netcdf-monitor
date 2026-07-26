@@ -20,6 +20,7 @@ _metadata/
 
 # Logs
 *.log
+logs
 
 # OS
 .DS_Store
