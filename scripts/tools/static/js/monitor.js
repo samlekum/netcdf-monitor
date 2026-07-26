@@ -269,6 +269,19 @@ window.addEventListener('resize', updateHeights);
   const breadcrumbEl = document.getElementById('explorer-breadcrumb');
   const countEl = document.getElementById('explorer-count');
   const viewBtns = document.querySelectorAll('.view-btn');
+  const refreshBtn = document.getElementById('refresh-btn');
+
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      if (refreshBtn.classList.contains('loading')) return;
+
+      refreshBtn.classList.add('loading');
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 400);
+    });
+  }
 
   let viewMode = 'grid';
   let history = [{ level: 'root' }];
