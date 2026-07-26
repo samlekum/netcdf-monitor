@@ -1,0 +1,26 @@
+# Environment
+.env
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# IDE
+.vscode/
+.idea/
+
+# Data & generated files
+data_bandung/
+*.nc
+
+# Metadata
+_metadata/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetCDF Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/monitor.css') }}">
+</head>
+
+<body>
+
+<div id="toast-container"></div>
+
+<div id="app">
+
+  <!-- Masthead -->
+  <header class="masthead">
+    <div class="masthead-inner">
+      <div class="wordmark">
+        <span class="wordmark-mark">.nc</span>
+        <div class="wordmark-text">
+          <span class="wordmark-title">NetCDF Monitor</span>
+          <span class="wordmark-sub">Himawari&#8209;9 download pipeline</span>
+        </div>
+      </div>
+      <div class="masthead-right">
+        <button class="btn btn-ghost" onclick="location.reload()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+          <span class="btn-text">Refresh</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="content">
+
+    <!-- Hero stats -->
+    <section class="hero-stats">
+      <div class="stat-block">
+        <span class="stat-number">{{total_count}}</span>
+        <span class="stat-label">Total file</span>
+      </div>
+      <div class="stat-divider" aria-hidden="true"></div>
+      <div class="stat-block">
+        <span class="stat-number">{{total_size}}</span>
+        <span class="stat-label">Total size</span>
+      </div>
+    </section>
+
+    <!-- Monthly breakdown -->
+    <section class="panel breakdown-panel">
+
+      <!-- MOBILE VIEW -->
+      <div class="breakdown-mobile">
+        <div class="panel-head">
+          <h2>Monthly breakdown</h2>
+          <span class="count-pill">{{breakdown|length}} months</span>
+        </div>
+
+        <div class="accordion">
+          {% for month, days in breakdown.items() %}
+          <div class="accordion-item">
+            <div class="accordion-header" onclick="toggleMonth(this)">
+              <div class="month-info">
+                <span class="month-name">{{month}}</span>
+                <span class="month-meta">{{days|length}} days</span>
+              </div>
+              <div class="month-right">
+                <span class="month-total">{{days.values()|sum(attribute=0)}} files</span>
+                <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </div>
+            </div>
+            <div class="accordion-content">
+              <div class="day-list">
+                {% set locked = days|length < 10 %}
+                {% if locked %}
+                <div class="day-list-alert">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                  <span>Baru {{days|length}} hari data untuk bulan ini &mdash; detail file per hari baru bisa dibuka setelah data bulan ini genap 10 hari.</span>
+                </div>
+                {% endif %}
+                {% for day, data in days.items() %}
+                <div class="day-item">
+                  {% if locked %}
+                  <div class="day-header locked">
+                    <div class="day-date">
+                      <span class="day-dot"></span>
+                      <span>{{day}}</span>
+                    </div>
+                    <div class="day-stats">
+                      <span class="day-files">{{data[0]}} file{% if data[0] != 1 %}s{% endif %}</span>
+                      <span class="day-size">{{human(data[1])}}</span>
+                    </div>
+                  </div>
+                  {% else %}
+                  <div class="day-header" onclick="toggleDay(this, '{{month}}', '{{day}}')">
+                    <div class="day-date">
+                      <span class="day-dot"></span>
+                      <span>{{day}}</span>
+                    </div>
+                    <div class="day-stats">
+                      <span class="day-files">{{data[0]}} file{% if data[0] != 1 %}s{% endif %}</span>
+                      <span class="day-size">{{human(data[1])}}</span>
+                      <svg class="arrow sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </div>
+                  </div>
+                  <div class="day-content">
+                    <div class="slot-summary" style="display:none;"></div>
+                    <div class="file-list" data-loaded="false">
+                      <div class="file-loading">Belum dibuka</div>
+                    </div>
+                  </div>
+                  {% endif %}
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- DESKTOP/TABLET VIEW -->
+      <div class="breakdown-desktop">
+        <div class="explorer-toolbar">
+          <div class="explorer-nav">
+            <button class="nav-btn" id="explorer-back" title="Back" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            <button class="nav-btn" id="explorer-forward" title="Forward" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+            <nav class="breadcrumb" id="explorer-breadcrumb" aria-label="Breadcrumb"></nav>
+          </div>
+          <div class="explorer-actions">
+            <span class="explorer-count" id="explorer-count">{{breakdown|length}} months</span>
+            <div class="view-toggle" role="group" aria-label="View mode">
+              <button class="view-btn" data-view="list" title="List view" aria-pressed="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+              </button>
+              <button class="view-btn active" data-view="grid" title="Icon view" aria-pressed="false">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="14" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="explorer-body" id="explorer-body"></div>
+      </div>
+
+      <script type="application/json" id="explorer-data">{{ breakdown | tojson }}</script>
+    </section>
+
+  </main>
+</div>
+
+<script src="{{ url_for('static', filename='js/monitor.js') }}"></script>
+
+</body>
+</html>
