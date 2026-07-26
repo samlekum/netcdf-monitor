@@ -28,6 +28,7 @@ DATASET_EXT = ".nc"
 FILENAME_TEMPLATE = "subset_NC_H09_{date}_{time}_R21_FLDK.02801_02401.nc"
 SLOT_INTERVAL_MINUTES = 10  # data Himawari-9 per 10 menit -> 0000, 0010, ..., 2350
 
+
 def format_count(value):
     """Format angka dengan pemisah ribuan titik."""
     return f"{value:,}".replace(",", ".")
@@ -36,6 +37,7 @@ def format_count(value):
 def format_size(value):
     """Format ukuran dengan pemisah desimal koma."""
     return human_readable(value).replace(".", ",")
+
 
 def tail_log_lines(path, max_lines=LOG_TAIL_LINES, max_bytes=LOG_TAIL_MAX_BYTES):
     """Baca N baris terakhir dari SATU file log tanpa load seluruh file ke memory.
@@ -162,7 +164,7 @@ def get_active_pids():
     return sorted(set(pids))
 
 
-
+def list_files_for_day(base_dir, month_key, day_key, ext=DATASET_EXT):
     """Cari semua file .nc yang berada di folder base_dir/.../<month_key>/<day_key>/.
 
     Logic path-parsing ini sengaja disamain persis kayak scan() di
@@ -249,7 +251,7 @@ def build_day_schedule(base_dir, month_key, day_key):
 @app.route("/")
 def index():
     stats = get_statistics(Config.FINAL_BASE_DIR)
-    
+
     return render_template(
         "monitor.html",
         total_count=format_count(stats["total_count"]),

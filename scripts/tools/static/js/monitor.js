@@ -201,16 +201,47 @@ async function toggleDay(header, month, day) {
     fileList.innerHTML = '<div class="file-loading">Memuat jadwal slot...</div>';
     updateHeights();
     try {
-      const res = await fetch('/api/files?month=' + encodeURIComponent(month) + '&day=' + encodeURIComponent(day));
-      const data = await res.json();
+      const res = await fetch(
+        '/api/files?month=' +
+        encodeURIComponent(month) +
+        '&day=' +
+        encodeURIComponent(day)
+      );
+
+      let data;
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        throw new Error(`Server error (${res.status}): respons bukan JSON. ${text.slice(0, 100)}`);
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
       renderFileList(fileList, data.schedule);
+
       summary.style.display = 'flex';
-      summary.innerHTML = '<span class="dot-ok">' + data.existing_count + '</span> dari ' +
-        data.total_slots + ' slot sudah terunduh &middot; <span class="dot-missing">' +
-        (data.total_slots - data.existing_count) + '</span> belum ada';
+      summary.innerHTML =
+        '<span class="dot-ok">' +
+        data.existing_count +
+        '</span> dari ' +
+        data.total_slots +
+        ' slot sudah terunduh &middot; <span class="dot-missing">' +
+        (data.total_slots - data.existing_count) +
+        '</span> belum ada';
+
       fileList.dataset.loaded = 'true';
+
     } catch (err) {
-      fileList.innerHTML = '<div class="file-loading">Gagal memuat jadwal slot.</div>';
+      console.error('Gagal memuat jadwal slot:', err);
+
+      fileList.innerHTML =
+        '<div class="file-loading">' +
+        'Gagal memuat jadwal slot: ' +
+        err.message +
+        '</div>';
     }
   }
 
@@ -596,26 +627,48 @@ window.addEventListener('resize', updateHeights);
     const fileList = body.querySelector('.file-list');
     const myToken = ++requestToken;
 
-    fetch('/api/files?month=' + encodeURIComponent(month) + '&day=' + encodeURIComponent(day))
-      .then((res) => res.json())
-      .then((data) => {
-        if (myToken !== requestToken) return; // a newer navigation superseded this fetch
-        renderFileList(fileList, data.schedule);
-        summary.style.display = 'flex';
-        summary.innerHTML =
-          '<span class="dot-ok">' +
-          data.existing_count +
-          '</span> dari ' +
-          data.total_slots +
-          ' slot sudah terunduh &middot; <span class="dot-missing">' +
-          (data.total_slots - data.existing_count) +
-          '</span> belum ada';
-        countEl.textContent = data.existing_count + ' / ' + data.total_slots + ' slots';
-      })
-      .catch(() => {
-        if (myToken !== requestToken) return;
-        fileList.innerHTML = '<div class="explorer-loading">Gagal memuat jadwal slot.</div>';
-      });
+  fetch('/api/files?month=' + encodeURIComponent(month) + '&day=' + encodeURIComponent(day))
+    .then(async (res) => {
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await res.text();
+        throw new Error(`Server error (${res.status}): respons bukan JSON. ${text.slice(0, 100)}`);
+      }
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      return data;
+    })
+    .then((data) => {
+      if (myToken !== requestToken) return;
+
+      renderFileList(fileList, data.schedule);
+
+      summary.style.display = 'flex';
+      summary.innerHTML =
+        '<span class="dot-ok">' +
+        data.existing_count +
+        '</span> dari ' +
+        data.total_slots +
+        ' slot sudah terunduh &middot; <span class="dot-missing">' +
+        (data.total_slots - data.existing_count) +
+        '</span> belum ada';
+
+      countEl.textContent =
+        data.existing_count + ' / ' + data.total_slots + ' slots';
+    })
+    .catch((err) => {
+      if (myToken !== requestToken) return;
+
+      console.error('Gagal memuat file:', err);
+
+      fileList.innerHTML =
+        '<div class="explorer-loading">' +
+        'Gagal memuat jadwal slot: ' +
+        err.message +
+        '</div>';
+    });
   }
 
   function render() {
